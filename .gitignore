@@ -1,0 +1,42 @@
+# Environment and secrets
+.env
+
+# Python
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+dist
+build
+
+# Node.js / Frontend
+node_modules
+.next
+out
+
+# Data and vector store (generated / large files)
+data/raw/*
+!data/raw/.gitkeep
+vector_store/*
+!vector_store/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Logs and caches
+*.log
+.cache
+.pytest_cache
+.mypy_cache
+.ruff_cache
