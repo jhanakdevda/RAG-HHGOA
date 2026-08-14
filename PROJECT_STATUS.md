@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 3 — Dataset Acquisition and Inspection (Complete)
+Phase 4 — Adaptive/Semantic Chunking (Complete)
 
 ## Completed
 
@@ -26,14 +26,20 @@ Phase 3 — Dataset Acquisition and Inspection (Complete)
 - Pydantic dataset models created (`backend/app/models/dataset.py`)
 - Dataset documentation written (`docs/DATASET.md`)
 - Dataset unit tests implemented and passing (`backend/tests/test_dataset.py`)
+- `TextChunk` Pydantic model implemented (`backend/app/models/chunk.py`)
+- `AdaptiveSemanticChunker` implemented with Devanagari boundary rules (`backend/app/rag/chunker.py`)
+- Batch chunking script created (`scripts/process_chunks.py`)
+- Processed chunk dataset generated (`data/processed/msmarco_xi_hi_chunks.jsonl`)
+- Chunking documentation written (`docs/CHUNKING.md`)
+- Phase 4 chunker unit tests implemented and passing (`backend/tests/test_chunker.py`)
 
 ## Currently Working
 
-- Phase 3 complete — awaiting confirmation before Phase 4
+- Phase 4 complete — awaiting confirmation before Phase 5
 
 ## Next Phase
 
-Phase 4 — Adaptive/Semantic Chunking
+Phase 5 — FAISS Vector Store Build
 
 ## Known Issues
 
