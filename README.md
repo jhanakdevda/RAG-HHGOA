@@ -152,7 +152,7 @@ Implementation lives under `backend/app/guardrails/`.
 | **2** | Backend environment setup (Python, FastAPI, deps) | ✅ Complete |
 | **3** | Dataset sampling and preprocessing | ✅ Complete |
 | **4** | Chunking and embedding pipeline | ✅ Complete |
-| **5** | FAISS vector store build | Planned |
+| **5** | FAISS vector store build | ✅ Complete |
 | **6** | RAG orchestration harness | Planned |
 | **7** | Sarvam speech-to-text integration | Planned |
 | **8** | LLM integration and answer generation | Planned |

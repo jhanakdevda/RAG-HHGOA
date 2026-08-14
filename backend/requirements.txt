@@ -8,3 +8,5 @@ pandas
 pytest
 httpx
 datasets
+sentence-transformers
+faiss-cpu

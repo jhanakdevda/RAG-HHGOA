@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Adaptive/Semantic Chunking (Complete)
+Phase 5 — Embeddings + FAISS Vector Store (Complete)
 
 ## Completed
 
@@ -32,14 +32,21 @@ Phase 4 — Adaptive/Semantic Chunking (Complete)
 - Processed chunk dataset generated (`data/processed/msmarco_xi_hi_chunks.jsonl`)
 - Chunking documentation written (`docs/CHUNKING.md`)
 - Phase 4 chunker unit tests implemented and passing (`backend/tests/test_chunker.py`)
+- Multilingual embedding service integrated (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensions)
+- FAISS `IndexFlatIP` vector store abstraction built (`backend/app/rag/vector_store.py`)
+- Vector index build script created (`scripts/build_vector_index.py`)
+- FAISS binary index generated and persisted (`vector_store/index.faiss`, 300 vectors)
+- 1-to-1 chunk metadata mapping generated (`vector_store/chunk_metadata.jsonl`, 300 records)
+- Embeddings and Vector Store documentation written (`docs/EMBEDDINGS_AND_VECTOR_INDEX.md`)
+- Phase 5 unit tests implemented and passing (`backend/tests/test_embeddings.py`, `backend/tests/test_vector_store.py`)
 
 ## Currently Working
 
-- Phase 4 complete — awaiting confirmation before Phase 5
+- Phase 5 complete — awaiting confirmation before Phase 6
 
 ## Next Phase
 
-Phase 5 — FAISS Vector Store Build
+Phase 6 — Retrieval Harness
 
 ## Known Issues
 
