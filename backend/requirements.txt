@@ -10,3 +10,4 @@ httpx
 datasets
 sentence-transformers
 faiss-cpu
+python-multipart

@@ -21,6 +21,8 @@ out
 # Data and vector store (generated / large files)
 data/raw/*
 !data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
 vector_store/*
 !vector_store/.gitkeep
 
@@ -40,3 +42,6 @@ Thumbs.db
 .pytest_cache
 .mypy_cache
 .ruff_cache
+
+# Scratch exploration scripts
+scratch/

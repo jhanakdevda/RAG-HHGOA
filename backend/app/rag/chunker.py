@@ -1,21 +1,21 @@
 """
-Adaptive Semantic Chunker for Devanagari / Hindi Text
+Adaptive Semantic Chunker for Multilingual Text (MS MARCO-XI)
 
 Implements semantic boundary splitting, sentence preservation, adaptive sizing,
-and overlap logic for MS MARCO-XI passages.
+and overlap logic for English and Indic language passages (Hindi, Marathi, Bengali, Tamil, Telugu, Urdu, etc.).
 """
 
 import re
-from typing import List, Union
-from app.models.dataset import MSMarcoExample
+from typing import List, Union, Optional
+from app.models.dataset import MSMarcoExample, LANGUAGE_NAME_MAP
 from app.models.chunk import TextChunk
 
 
 class AdaptiveSemanticChunker:
-    """Adaptive semantic text chunker tuned for Devanagari / Hindi script."""
+    """Adaptive semantic text chunker supporting English and Indic scripts."""
 
-    # Sentence boundary regex including Devanagari Purna Viram (| and ||), ?, !, ., and newlines
-    SENTENCE_END_PATTERN = re.compile(r'(?<=[।॥?!.\n])\s+')
+    # Sentence boundary regex including Devanagari Purna Viram (| and ||), Urdu Khatmah (۔), Urdu question mark (؟), ?, !, ., and newlines
+    SENTENCE_END_PATTERN = re.compile(r'(?<=[।॥?!.\n؟۔])\s+')
 
     def __init__(
         self,
@@ -35,26 +35,20 @@ class AdaptiveSemanticChunker:
         self.overlap_sentences = overlap_sentences
 
     def split_sentences(self, text: str) -> List[str]:
-        """Splits Devanagari text into sentences while respecting Purna Viram and punctuation boundaries."""
+        """Splits multilingual text into sentences while respecting Devanagari, Urdu, and standard punctuation boundaries."""
         if not text or not text.strip():
             return []
 
-        # Clean whitespace normalized
         raw_sentences = self.SENTENCE_END_PATTERN.split(text.strip())
         sentences = [s.strip() for s in raw_sentences if s.strip()]
 
-        # Fallback if regex produced no split for unpunctuated text
         if not sentences and text.strip():
             sentences = [text.strip()]
 
         return sentences
 
     def chunk_text(self, text: str) -> List[str]:
-        """
-        Chunks text into semantically cohesive segments using sentence boundaries.
-        
-        Returns a list of chunk text strings.
-        """
+        """Chunks text into semantically cohesive segments using sentence boundaries."""
         sentences = self.split_sentences(text)
         if not sentences:
             return []
@@ -66,12 +60,10 @@ class AdaptiveSemanticChunker:
         for sentence in sentences:
             sent_len = len(sentence)
 
-            # If adding this sentence exceeds max_chunk_size and current_sentences is non-empty
             if current_sentences and (current_len + sent_len + 1 > self.max_chunk_size):
                 chunk_str = " ".join(current_sentences)
                 chunks.append(chunk_str)
 
-                # Apply overlap: keep trailing sentences based on overlap_sentences setting
                 if self.overlap_sentences > 0:
                     current_sentences = current_sentences[-self.overlap_sentences:]
                     current_len = sum(len(s) for s in current_sentences) + max(0, len(current_sentences) - 1)
@@ -82,7 +74,6 @@ class AdaptiveSemanticChunker:
             current_sentences.append(sentence)
             current_len += sent_len + (1 if len(current_sentences) > 1 else 0)
 
-            # If target chunk size reached, complete chunk unless next sentence is tiny
             if current_len >= self.target_chunk_size and len(current_sentences) >= 2:
                 chunk_str = " ".join(current_sentences)
                 chunks.append(chunk_str)
@@ -94,10 +85,8 @@ class AdaptiveSemanticChunker:
                     current_sentences = []
                     current_len = 0
 
-        # Append any remaining sentences
         if current_sentences:
             chunk_str = " ".join(current_sentences)
-            # Avoid duplicate if last chunk string matches previous
             if not chunks or chunks[-1] != chunk_str:
                 chunks.append(chunk_str)
 
@@ -108,11 +97,18 @@ class AdaptiveSemanticChunker:
         passage_text: str,
         query_id: int,
         passage_index: int,
-        is_selected: int = 0
+        is_selected: int = 0,
+        language_code: str = "hi",
+        language_name: Optional[str] = None,
+        source_lang: Optional[str] = "en",
+        target_lang: Optional[str] = "hi"
     ) -> List[TextChunk]:
-        """Chunks a single passage text and wraps output in TextChunk Pydantic models."""
+        """Chunks a single passage text and wraps output in TextChunk Pydantic models with explicit language metadata."""
         chunk_texts = self.chunk_text(passage_text)
         text_chunks: List[TextChunk] = []
+
+        if not language_name and language_code:
+            language_name = LANGUAGE_NAME_MAP.get(language_code.lower(), language_code)
 
         curr_offset = 0
         for chunk_idx, c_text in enumerate(chunk_texts):
@@ -120,7 +116,6 @@ class AdaptiveSemanticChunker:
             word_count = len(c_text.split())
             char_count = len(c_text)
 
-            # Calculate character offset within original passage if possible
             start_pos = passage_text.find(c_text, curr_offset)
             if start_pos == -1:
                 start_pos = curr_offset
@@ -134,6 +129,10 @@ class AdaptiveSemanticChunker:
                 passage_index=passage_index,
                 chunk_index=chunk_idx,
                 is_selected=is_selected,
+                language_code=language_code,
+                language_name=language_name,
+                source_lang=source_lang,
+                target_lang=target_lang,
                 char_count=char_count,
                 word_count=word_count,
                 start_char=start_pos,
@@ -145,14 +144,16 @@ class AdaptiveSemanticChunker:
 
     def chunk_example(self, example: Union[MSMarcoExample, dict]) -> List[TextChunk]:
         """
-        Chunks all translated passages in an MSMarcoExample record.
-
-        Returns a flat list of TextChunk objects.
+        Chunks all translated target passages in an MSMarcoExample record, explicitly inheriting language metadata.
         """
         if isinstance(example, dict):
             example = MSMarcoExample(**example)
 
         query_id = example.query_id
+        target_lang = example.target_lang or "hi"
+        source_lang = example.source_lang or "en"
+        lang_name = example.language_name or LANGUAGE_NAME_MAP.get(target_lang.lower(), target_lang)
+
         translated_passages = example.passages.Translated_passages
         is_selected_flags = example.passages.is_selected
 
@@ -164,7 +165,11 @@ class AdaptiveSemanticChunker:
                 passage_text=p_text,
                 query_id=query_id,
                 passage_index=p_idx,
-                is_selected=is_sel
+                is_selected=is_sel,
+                language_code=target_lang,
+                language_name=lang_name,
+                source_lang=source_lang,
+                target_lang=target_lang
             )
             all_chunks.extend(chunks)
 
