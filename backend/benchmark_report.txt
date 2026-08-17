@@ -1,0 +1,73 @@
+==================================================
+RAGE HH GOA — FINAL BENCHMARK SUMMARY
+==================================================
+
+Benchmark 1: Pure Vector Retrieval
+Embedding Model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+Embedding Dimension: 384
+FAISS Vectors: 21573
+Top-K: 5 | Measured Requests: 50
+AVG Latency:   22.64 ms
+P50 (Median):  22.51 ms
+P95:           25.37 ms
+P99:           32.76 ms
+MAX:           37.41 ms
+Embedding P95: 22.72 ms
+FAISS Search P95: 2.97 ms
+
+Benchmark 2: Full End-to-End RAG
+P50 Latency:   25.34 ms
+P70 Latency:   27.95 ms
+P90 Latency:   725.9 ms
+P95 Latency:   1206.73 ms
+P99 Latency:   2621.17 ms
+MAX Latency:   3057.52 ms
+Mean:          244.65 ms
+Retrieval Avg: 26.23 ms
+LLM Gen Avg:   218.07 ms
+Verification:  0.04 ms
+Input Tokens:  81.3
+Output Tokens: 33
+Groq Calls:    Successful: 2, 429 Rate-limited: 1, Errors: 13
+
+Benchmark 3: Multilingual Latency Breakdown (Across 9 Languages)
+Language      Requests   AVG Total       P50       P95
+------------------------------------------------------
+English              2       21.12     21.12     21.43
+Hindi                2       20.99     20.99     21.70
+Marathi              2       18.09     18.09     18.26
+Gujarati             2       18.87     18.87     19.35
+Bengali              2       25.65     25.65     27.22
+Tamil                2       19.41     19.41     20.43
+Telugu               2       22.25     22.25     22.99
+Kannada              2       23.51     23.51     24.78
+Punjabi              2       19.83     19.83     20.56
+
+Benchmark 4: Retrieval-Only Language Breakdown
+Language           AVG       P50       P95       P99
+----------------------------------------------------
+English          22.43     22.14     24.87     25.43
+Hindi            21.02     21.09     22.05     22.09
+Marathi          31.99     21.30     72.76     93.46
+Gujarati         20.06     19.64     22.12     22.39
+Bengali          20.47     20.56     22.55     22.60
+Tamil            22.02     22.07     24.14     24.39
+Telugu           24.26     23.98     27.46     27.90
+Kannada          25.60     25.02     30.07     30.29
+Punjabi          23.25     23.20     26.48     27.73
+
+Cold Start vs Warm Start
+Cold Start -> Model Load: 3.71 ms | FAISS Load: 69.97 ms | First Ret: 20850.15 ms | First RAG: 4468.75 ms
+Warm Start -> Retrieval P50: 22.51 ms | Retrieval P95: 25.37 ms | RAG P50: 25.34 ms | RAG P95: 1206.73 ms
+
+Benchmark 6: Safety / Fail-Fast Paths
+UNSAFE:     P50: 24.93 ms | P95: 25.2 ms | Groq Calls: 0
+NO_CONTEXT: P50: 20.55 ms | P95: 21.31 ms | Groq Calls: 0
+
+Fastest Language: Marathi (18.09 ms avg)
+Slowest Language: Bengali (25.65 ms avg)
+
+Latency Budgets & Status
+Retrieval Budget: 50 ms | P95 Measured: 25.37 ms -> STATUS: PASS
+Full RAG Target:  3000 ms | P95 Measured: 1206.73 ms -> STATUS: PASS
+==================================================

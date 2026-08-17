@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Send, X, AlertCircle, Loader2, Square } from 'lucide-react';
+import { Mic, Send, X, Loader2, Square, AlertCircle } from 'lucide-react';
 import { transcribeAudio } from '../services/api';
 
 export default function MainQueryBox({
@@ -7,37 +7,25 @@ export default function MainQueryBox({
   setQuery,
   onSubmit,
   isLoading,
-  selectedLanguage,
-  onStartVoice,
-  onEndVoice
+  selectedLanguage
 }) {
   // Voice states: 'IDLE' | 'RECORDING' | 'TRANSCRIBING' | 'ERROR'
   const [voiceState, setVoiceState] = useState('IDLE');
   const [voiceErrorMessage, setVoiceErrorMessage] = useState('');
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const timerIntervalRef = useRef(null);
-
-  // Clean up timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    };
-  }, []);
 
   const startRecording = async () => {
     setVoiceErrorMessage('');
     setVoiceState('RECORDING');
-    setRecordingSeconds(0);
     audioChunksRef.current = [];
-
-    if (onStartVoice) onStartVoice();
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg' });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
+      });
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
@@ -47,7 +35,6 @@ export default function MainQueryBox({
       };
 
       mediaRecorder.onstop = async () => {
-        // Stop audio tracks
         stream.getTracks().forEach(track => track.stop());
 
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
@@ -63,7 +50,6 @@ export default function MainQueryBox({
           if (res.success && res.transcript) {
             setQuery(res.transcript);
             setVoiceState('IDLE');
-            // Auto submit with STT latency telemetry
             onSubmit({
               query: res.transcript,
               isVoice: true,
@@ -76,42 +62,22 @@ export default function MainQueryBox({
           }
         } catch (err) {
           setVoiceState('ERROR');
-          setVoiceErrorMessage('STT Service unreachable');
+          setVoiceErrorMessage('STT Service error');
         }
       };
 
       mediaRecorder.start(200);
-
-      // Start elapsed timer
-      timerIntervalRef.current = setInterval(() => {
-        setRecordingSeconds(prev => prev + 1);
-      }, 1000);
-
     } catch (err) {
-      console.error('Microphone access error:', err);
+      console.error('Microphone error:', err);
       setVoiceState('ERROR');
-      setVoiceErrorMessage('Microphone access denied or unavailable');
+      setVoiceErrorMessage('Microphone access denied');
     }
   };
 
   const stopRecording = () => {
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
-  };
-
-  const cancelRecording = () => {
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.onstop = null;
-      if (mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
-      }
-    }
-    setVoiceState('IDLE');
-    setRecordingSeconds(0);
-    if (onEndVoice) onEndVoice();
   };
 
   const handleSubmit = (e) => {
@@ -120,17 +86,11 @@ export default function MainQueryBox({
     onSubmit({ query: query.trim(), isVoice: false });
   };
 
-  const formatTimer = (secs) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
   return (
-    <div className="w-full mb-6">
+    <div className="w-full mb-4">
       <form onSubmit={handleSubmit} className="relative">
-        <div className={`glass-card p-2 sm:p-3 transition-all ${
-          voiceState === 'RECORDING' ? 'border-rose-500/50 shadow-[0_0_25px_rgba(239,68,68,0.2)]' : 'hover:border-cyan-500/30'
+        <div className={`clean-card p-2 sm:p-3 transition-all ${
+          voiceState === 'RECORDING' ? 'border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.15)]' : 'hover:border-white/20'
         }`}>
           
           {/* Main Input Textarea */}
@@ -147,15 +107,14 @@ export default function MainQueryBox({
               placeholder="Ask anything about the knowledge base..."
               disabled={isLoading || voiceState === 'RECORDING' || voiceState === 'TRANSCRIBING'}
               rows={2}
-              className="w-full bg-transparent text-sm sm:text-base text-slate-100 placeholder-slate-400 focus:outline-none resize-none px-3 py-2 leading-relaxed"
+              className="w-full bg-transparent text-sm sm:text-base text-slate-100 placeholder-slate-400 focus:outline-none resize-none px-2 py-1 leading-relaxed font-sans"
             />
-            
-            {/* Clear query button */}
+
             {query && !isLoading && voiceState === 'IDLE' && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="p-1.5 text-slate-400 hover:text-slate-200 transition-colors mr-2 rounded-lg hover:bg-white/5"
+                className="p-1 text-slate-400 hover:text-slate-200 transition-colors mr-2 rounded hover:bg-white/5"
                 title="Clear input"
               >
                 <X className="w-4 h-4" />
@@ -164,93 +123,81 @@ export default function MainQueryBox({
           </div>
 
           {/* Controls Bar at bottom of Query Box */}
-          <div className="flex flex-wrap items-center justify-between pt-2 border-t border-white/5 px-2 gap-2">
+          <div className="flex items-center justify-between pt-2 border-t border-white/5 px-1 gap-2">
             
-            {/* Left Voice Status Feedback */}
-            <div className="flex items-center gap-2 font-mono text-xs">
-              {voiceState === 'IDLE' && (
-                <span className="text-slate-400 hidden sm:inline">Ask with voice or type text</span>
-              )}
-
+            {/* Inline Status Feedback */}
+            <div className="flex items-center gap-2 text-xs font-mono">
               {voiceState === 'RECORDING' && (
-                <div className="flex items-center gap-2.5 text-rose-400 font-semibold">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                    Listening...
-                  </span>
-                  <span className="text-white/40">|</span>
-                  <div className="flex items-center gap-1 h-4">
-                    <span className="wave-bar" />
-                    <span className="wave-bar" />
-                    <span className="wave-bar" />
-                    <span className="wave-bar" />
-                    <span className="wave-bar" />
-                    <span className="wave-bar" />
+                <div className="flex items-center gap-2 text-rose-400 font-semibold">
+                  <span className="rec-indicator" />
+                  <span>Listening...</span>
+                  <div className="flex items-center gap-0.5 h-3 ml-1">
+                    <span className="small-wave-bar" />
+                    <span className="small-wave-bar" />
+                    <span className="small-wave-bar" />
+                    <span className="small-wave-bar" />
                   </div>
-                  <span className="text-slate-300 font-bold ml-1">{formatTimer(recordingSeconds)}</span>
                 </div>
               )}
 
               {voiceState === 'TRANSCRIBING' && (
-                <div className="flex items-center gap-2 text-cyan-400 font-medium">
+                <div className="flex items-center gap-1.5 text-cyan-400">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Transcribing speech via Sarvam...</span>
+                  <span>Transcribing...</span>
                 </div>
               )}
 
               {voiceState === 'ERROR' && (
-                <div className="flex items-center gap-1.5 text-rose-400">
+                <div className="flex items-center gap-1.5 text-rose-400 text-xs">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{voiceErrorMessage || 'Could not understand audio'}</span>
+                  <span>{voiceErrorMessage}</span>
                   <button
                     type="button"
                     onClick={() => setVoiceState('IDLE')}
-                    className="underline text-xs text-rose-300 hover:text-rose-100 ml-2"
+                    className="underline text-[11px] ml-1 text-rose-300"
                   >
                     Reset
                   </button>
                 </div>
               )}
+
+              {isLoading && voiceState === 'IDLE' && (
+                <div className="flex items-center gap-1.5 text-cyan-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Searching knowledge...</span>
+                </div>
+              )}
             </div>
 
             {/* Right Action Buttons */}
-            <div className="flex items-center gap-2.5 ml-auto">
+            <div className="flex items-center gap-2 ml-auto">
               
               {/* Microphone Toggle Button */}
               {voiceState === 'RECORDING' ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={stopRecording}
-                    className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-mono text-xs font-semibold flex items-center gap-1.5 shadow-[0_0_15px_rgba(239,68,68,0.4)] transition-all"
-                    aria-label="Stop voice input"
-                  >
-                    <Square className="w-3.5 h-3.5 fill-current" />
-                    <span>Done</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={cancelRecording}
-                    className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-mono transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  aria-label="Stop voice input"
+                >
+                  <Square className="w-3 h-3 fill-current" />
+                  <span>Done</span>
+                </button>
               ) : (
                 <button
                   type="button"
                   onClick={startRecording}
                   disabled={isLoading || voiceState === 'TRANSCRIBING'}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all ${
                     voiceState === 'TRANSCRIBING'
-                      ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 cursor-not-allowed'
-                      : 'bg-gradient-to-br from-cyan-500/20 via-purple-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 border border-cyan-500/40 text-cyan-300 hover:text-white shadow-[0_0_15px_rgba(0,240,255,0.2)]'
+                      ? 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 cursor-not-allowed'
+                      : 'bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white'
                   }`}
                   aria-label="Start voice input"
                   title="Ask with voice"
                 >
-                  <Mic className="w-5 h-5" />
+                  <Mic className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Voice</span>
                 </button>
               )}
 
@@ -258,22 +205,22 @@ export default function MainQueryBox({
               <button
                 type="submit"
                 disabled={!query.trim() || isLoading || voiceState === 'RECORDING'}
-                className={`px-5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all font-mono ${
+                className={`px-4 py-1.5 rounded-lg font-semibold text-xs flex items-center gap-1.5 transition-all font-mono ${
                   !query.trim() || isLoading || voiceState === 'RECORDING'
-                    ? 'bg-white/5 border border-white/10 text-slate-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:scale-[1.02]'
+                    ? 'bg-white/5 border border-white/5 text-slate-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-[0_0_12px_rgba(0,240,255,0.25)]'
                 }`}
                 aria-label="Submit question"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     <span>Processing...</span>
                   </>
                 ) : (
                   <>
                     <span>Ask</span>
-                    <Send className="w-3.5 h-3.5" />
+                    <Send className="w-3 h-3" />
                   </>
                 )}
               </button>

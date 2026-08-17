@@ -41,7 +41,7 @@ class GroqLLMProvider(BaseLLMProvider):
             or settings.llm_api_key
             or os.getenv("LLM_API_KEY")
         )
-        self.model_name = model_name or settings.llm_model or "llama-3.1-8b-instant"
+        self.model_name = model_name or settings.llm_model or "groq/compound-mini"
         self.base_url = base_url or settings.llm_base_url or "https://api.groq.com/openai/v1"
         self.timeout = timeout
         self._client = None
@@ -112,12 +112,25 @@ class GroqLLMProvider(BaseLLMProvider):
                 messages.append({"role": "system", "content": system_instruction})
             messages.append({"role": "user", "content": prompt})
 
-            response = client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=0.0,
-                max_tokens=max_tokens
-            )
+            try:
+                response = client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=0.0,
+                    max_tokens=max_tokens
+                )
+            except Exception as model_err:
+                if "does not exist" in str(model_err).lower() or "404" in str(model_err):
+                    self.model_name = "groq/compound-mini"
+                    response = client.chat.completions.create(
+                        model=self.model_name,
+                        messages=messages,
+                        temperature=0.0,
+                        max_tokens=max_tokens
+                    )
+                else:
+                    raise model_err
+
             text = ""
             prompt_tokens = 0
             completion_tokens = 0

@@ -1,112 +1,64 @@
 import React from 'react';
-import { Mic, FileText, Globe, Search, Layers, Cpu, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, ArrowDown } from 'lucide-react';
 
-export default function HowItWorks() {
+export default function HowItWorks({ isOpen }) {
+  if (!isOpen) return null;
+
   const steps = [
-    {
-      num: '01',
-      title: 'Voice / Text Input',
-      desc: 'Ask questions using microphone or keyboard in English or 15 Indic languages.',
-      icon: Mic,
-      color: 'from-purple-500/20 to-pink-500/20 text-purple-400 border-purple-500/30'
-    },
-    {
-      num: '02',
-      title: 'Sarvam STT',
-      desc: 'Converts spoken Indic speech to text using Sarvam Speech-to-Text API.',
-      icon: FileText,
-      color: 'from-blue-500/20 to-cyan-500/20 text-cyan-400 border-cyan-500/30'
-    },
-    {
-      num: '03',
-      title: 'Language Detection',
-      desc: 'Identifies input language script and configures target response language.',
-      icon: Globe,
-      color: 'from-cyan-500/20 to-teal-500/20 text-teal-400 border-teal-500/30'
-    },
-    {
-      num: '04',
-      title: 'FAISS Retrieval',
-      desc: 'Queries dense vector index using SentenceTransformers embeddings.',
-      icon: Search,
-      color: 'from-emerald-500/20 to-green-500/20 text-emerald-400 border-emerald-500/30'
-    },
-    {
-      num: '05',
-      title: 'MS MARCO-XI',
-      desc: 'Retrieves top-k relevant multilingual knowledge passages.',
-      icon: Layers,
-      color: 'from-yellow-500/20 to-amber-500/20 text-amber-400 border-amber-500/30'
-    },
-    {
-      num: '06',
-      title: 'Groq Llama 3.1 8B',
-      desc: 'Generates context-bound grounded response via Groq TLS Llama LLM.',
-      icon: Cpu,
-      color: 'from-purple-500/20 to-indigo-500/20 text-indigo-400 border-indigo-500/30'
-    },
-    {
-      num: '07',
-      title: 'Grounding Verification',
-      desc: 'Evaluates claim-to-context alignment score to eliminate hallucinations.',
-      icon: ShieldCheck,
-      color: 'from-blue-500/20 to-violet-500/20 text-violet-400 border-violet-500/30'
-    },
-    {
-      num: '08',
-      title: 'Trusted Answer',
-      desc: 'Delivers grounded multilingual answer with source attribution cards.',
-      icon: CheckCircle2,
-      color: 'from-emerald-500/20 to-teal-500/20 text-emerald-400 border-emerald-500/30'
-    }
+    { title: 'Voice / Text', desc: 'Input query' },
+    { title: 'Sarvam STT', desc: 'Speech to text' },
+    { title: 'Language Detection', desc: 'Script & dialect' },
+    { title: 'FAISS Retrieval', desc: 'Dense vector search' },
+    { title: 'MS MARCO-XI', desc: 'Multilingual context' },
+    { title: 'Groq Llama 3.1 8B', desc: 'LLM generation' },
+    { title: 'Grounding Verification', desc: 'Claim alignment' },
+    { title: 'Trusted Answer', desc: 'Grounded response' },
   ];
 
   return (
-    <section id="how-it-works" className="pt-20 pb-16 border-t border-white/10 mt-16 scroll-mt-20">
+    <section id="how-it-works" className="w-full mt-10 mb-8 pt-6 pb-8 border-t border-white/10 animate-fadeIn font-sans">
       
-      {/* Section Header */}
-      <div className="text-center max-w-3xl mx-auto mb-12">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-mono mb-3">
-          <span>ARCHITECTURE PIPELINE</span>
-        </div>
-        <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight mb-3">
+      <div className="text-center max-w-xl mx-auto mb-8">
+        <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight mb-1 font-mono uppercase">
           How It Works
         </h2>
-        <p className="text-slate-400 text-sm sm:text-base">
-          From your voice to a verified, grounded answer.
+        <p className="text-xs text-slate-400">
+          From your voice or text to a trusted, grounded answer.
         </p>
       </div>
 
-      {/* Grid Layout (Desktop 4 cols x 2 rows / Mobile 1 col) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {steps.map((step) => {
-          const StepIcon = step.icon;
-          return (
-            <div
-              key={step.num}
-              className="glass-card glass-card-interactive p-5 border border-white/10 relative flex flex-col justify-between"
-            >
-              <div>
-                {/* Step Number & Icon */}
-                <div className="flex items-center justify-between mb-4 font-mono">
-                  <span className="text-xs font-bold text-slate-500">
-                    STEP {step.num}
-                  </span>
-                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br border flex items-center justify-center ${step.color}`}>
-                    <StepIcon className="w-4 h-4" />
-                  </div>
-                </div>
-
-                <h3 className="text-sm font-bold text-slate-100 mb-2 font-mono">
-                  {step.title}
-                </h3>
-                <p className="text-xs text-slate-400 leading-relaxed font-sans">
-                  {step.desc}
-                </p>
-              </div>
+      {/* Desktop Horizontal Flow */}
+      <div className="hidden lg:flex items-center justify-between gap-1 max-w-5xl mx-auto">
+        {steps.map((step, idx) => (
+          <React.Fragment key={idx}>
+            <div className="clean-card p-2.5 text-center flex-1 min-w-0">
+              <div className="text-[10px] font-mono text-purple-400 font-bold">0{idx + 1}</div>
+              <div className="text-[11px] font-bold text-slate-200 truncate font-mono">{step.title}</div>
+              <div className="text-[10px] text-slate-400 truncate">{step.desc}</div>
             </div>
-          );
-        })}
+
+            {idx < steps.length - 1 && (
+              <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Mobile & Tablet Vertical Flow */}
+      <div className="lg:hidden flex flex-col items-center gap-2 max-w-sm mx-auto">
+        {steps.map((step, idx) => (
+          <React.Fragment key={idx}>
+            <div className="clean-card p-2.5 text-center w-full">
+              <div className="text-[10px] font-mono text-purple-400 font-bold">0{idx + 1}</div>
+              <div className="text-xs font-bold text-slate-200 font-mono">{step.title}</div>
+              <div className="text-[11px] text-slate-400">{step.desc}</div>
+            </div>
+
+            {idx < steps.length - 1 && (
+              <ArrowDown className="w-3.5 h-3.5 text-slate-500 my-0.5" />
+            )}
+          </React.Fragment>
+        ))}
       </div>
 
     </section>
