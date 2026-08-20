@@ -1,0 +1,12 @@
+# Render Slug / Storage Optimization Ignore List
+scratch/
+docs/
+evaluation/
+scripts/
+.pytest_cache/
+*.pyc
+__pycache__/
+*.onnx
+*.tar.gz
+*.zip
+frontend/node_modules/
