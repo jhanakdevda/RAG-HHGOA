@@ -13,7 +13,7 @@ from app.core.config import get_settings
 
 _shared_model = None
 _model_type = None  # 'fastembed' or 'sentence_transformers'
-DEFAULT_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+DEFAULT_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2-quint8"
 
 
 class EmbeddingService:
@@ -40,7 +40,28 @@ class EmbeddingService:
             # Try lightweight FastEmbed ONNX Runtime first (no torch required, < 60MB RAM/disk)
             try:
                 from fastembed import TextEmbedding
-                _shared_model = TextEmbedding(model_name=self.model_name, threads=1)
+                from fastembed.common.model_description import PoolingType, ModelSource
+
+                # Register official INT8 AVX2 Quantized ONNX model from sentence-transformers repo
+                try:
+                    TextEmbedding.add_custom_model(
+                        model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2-quint8",
+                        pooling=PoolingType.MEAN,
+                        normalization=True,
+                        sources=ModelSource(hf="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"),
+                        dim=384,
+                        model_file="onnx/model_quint8_avx2.onnx",
+                        description="Official INT8 AVX2 Quantized paraphrase-multilingual-MiniLM-L12-v2 ONNX model",
+                        size_in_gb=0.12
+                    )
+                except ValueError:
+                    pass  # Model already registered
+
+                _shared_model = TextEmbedding(
+                    model_name=self.model_name,
+                    threads=1,
+                    enable_cpu_mem_arena=False
+                )
                 _model_type = "fastembed"
                 list(_shared_model.embed(["warmup"]))
                 print(f"[EMBEDDINGS] Loaded lightweight FastEmbed ONNX model: {self.model_name}")
