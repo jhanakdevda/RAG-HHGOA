@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import os
 from typing import Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
