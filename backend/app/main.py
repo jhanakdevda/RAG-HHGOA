@@ -58,12 +58,17 @@ def get_stt_service() -> SpeechToTextService:
 
 @app.on_event("startup")
 def startup_event():
-    """FastAPI startup handler: pre-warms FAISS, metadata, SentenceTransformer, GroundingVerifier, and Groq connection."""
+    """FastAPI startup handler: pre-warms resources lazily or immediately depending on environment."""
     stt_key = settings.sarvam_api_key or os.getenv("SARVAM_API_KEY")
     if stt_key:
         print("Sarvam STT configured: YES")
     else:
         print("Sarvam STT configured: NO")
+
+    # In cloud environments (Render 512MB RAM), defer heavy model loading to first request to allow instant port binding
+    if os.getenv("RENDER") or os.getenv("DEFER_PREWARM") or settings.debug is False:
+        print("[STARTUP] Fast boot enabled: Heavy model pre-warming deferred to first request for low RAM footprint.")
+        return
 
     try:
         r_service = get_retrieval_service()
@@ -72,7 +77,7 @@ def startup_event():
         if hasattr(prov, "warm_connection"):
             prov.warm_connection()
         get_generator_service()
-        print("[STARTUP] Pre-warming complete: Retrieval, FAISS, SentenceTransformer, GroundingVerifier, and Groq TLS Provider ready.")
+        print("[STARTUP] Pre-warming complete: Retrieval, FAISS, SentenceTransformer, GroundingVerifier, and LLM Provider ready.")
     except Exception as e:
         print(f"[STARTUP WARNING] Resource pre-warming deferred: {e}")
 
