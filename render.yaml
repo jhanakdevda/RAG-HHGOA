@@ -1,5 +1,6 @@
-# Render Blueprint Deployment Spec for HH Goa RAG Backend
+# Render Blueprint Deployment Spec for HH Goa RAG Backend & Frontend
 services:
+  # 1. Backend FastAPI RAG Service (Web Service)
   - type: web
     name: hh-goa-rag-backend
     env: python
@@ -19,3 +20,18 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+
+  # 2. Frontend React / Vite App (Static Site - 100% Free)
+  - type: web
+    name: hh-goa-rag-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: hh-goa-rag-backend
+          property: url
+
