@@ -17,13 +17,36 @@ client = TestClient(app)
 
 
 def test_retrieval_service_initialization():
-    """Verify RetrievalService initializes and loads vector store and metadata cache."""
+    """Verify RetrievalService initializes and builds compact byte-offset metadata index."""
     service = RetrievalService()
     service._ensure_loaded()
     assert service.vector_store is not None
     assert service.vector_store.ntotal > 0
-    assert service._metadata_cache is not None
-    assert len(service._metadata_cache) == service.vector_store.ntotal
+    assert service._metadata_offsets is not None
+    assert len(service._metadata_offsets) == service.vector_store.ntotal
+    assert service.total_chunks == service.vector_store.ntotal
+
+
+def test_lazy_metadata_chunk_lookup():
+    """Verify lazy on-demand chunk loading by vector index."""
+    service = RetrievalService()
+    service._ensure_loaded()
+
+    # Valid chunk lookup
+    chunk0 = service.get_chunk_by_index(0)
+    assert chunk0 is not None
+    assert chunk0.chunk_id is not None
+    assert isinstance(chunk0.text, str)
+    assert len(chunk0.text) > 0
+
+
+def test_invalid_metadata_index_handling():
+    """Verify invalid or out-of-bounds vector index returns None safely without throwing errors."""
+    service = RetrievalService()
+    service._ensure_loaded()
+
+    assert service.get_chunk_by_index(-1) is None
+    assert service.get_chunk_by_index(9999999) is None
 
 
 def test_multilingual_query_retrieval():

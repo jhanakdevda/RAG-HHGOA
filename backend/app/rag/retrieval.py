@@ -224,11 +224,14 @@ def matches_language_filter(filter_str: str, chunk: TextChunk) -> bool:
     return clean_filter in chunk_tokens
 
 
+import array
+
 class RetrievalService:
-    """Core Retrieval Service wrapping EmbeddingService, FAISSVectorStore, and O(1) metadata lookup."""
+    """Core Retrieval Service wrapping EmbeddingService, FAISSVectorStore, and lazy O(1) byte-offset metadata lookup."""
 
     _shared_vector_store = None
-    _shared_metadata_chunks: Optional[List[TextChunk]] = None
+    _shared_metadata_offsets: Optional[array.array] = None
+    _shared_metadata_path: Optional[str] = None
 
     def __init__(
         self,
@@ -243,11 +246,37 @@ class RetrievalService:
         self.vector_store = vector_store or RetrievalService._shared_vector_store
 
     @property
-    def _metadata_cache(self) -> Optional[List[TextChunk]]:
-        return RetrievalService._shared_metadata_chunks
+    def _metadata_offsets(self) -> Optional[array.array]:
+        return RetrievalService._shared_metadata_offsets
+
+    @property
+    def _metadata_cache(self) -> Optional[array.array]:
+        return RetrievalService._shared_metadata_offsets
+
+    @property
+    def total_chunks(self) -> int:
+        offsets = RetrievalService._shared_metadata_offsets
+        return len(offsets) if offsets is not None else 0
+
+    def get_chunk_by_index(self, idx: int) -> Optional[TextChunk]:
+        """Lazily reads a single TextChunk by vector index from chunk_metadata.jsonl via byte offset seek."""
+        offsets = RetrievalService._shared_metadata_offsets
+        m_path = RetrievalService._shared_metadata_path or self.metadata_path
+        if offsets is None or idx < 0 or idx >= len(offsets):
+            return None
+
+        try:
+            with open(m_path, "r", encoding="utf-8") as f:
+                f.seek(offsets[idx])
+                line = f.readline()
+                if line and line.strip():
+                    return TextChunk(**json.loads(line))
+        except Exception:
+            pass
+        return None
 
     def _ensure_loaded(self):
-        """Pre-loads FAISS index, SentenceTransformer model, and pre-instantiated TextChunk array once into RAM."""
+        """Pre-loads FAISS index and builds compact byte offset index for lazy metadata lookup."""
         if self.vector_store is None or RetrievalService._shared_vector_store is None:
             f_path = self.faiss_path
             m_path = self.metadata_path
@@ -266,17 +295,19 @@ class RetrievalService:
             self.faiss_path = f_path
             self.metadata_path = m_path
 
-        if RetrievalService._shared_metadata_chunks is None:
-            chunks = []
+        if RetrievalService._shared_metadata_offsets is None:
             m_path = self.metadata_path
             if not os.path.exists(m_path):
                 m_path = os.path.join("..", self.metadata_path)
 
-            with open(m_path, "r", encoding="utf-8") as f:
+            offsets = array.array('Q')
+            with open(m_path, "rb") as f:
+                pos = 0
                 for line in f:
-                    if line.strip():
-                        chunks.append(TextChunk(**json.loads(line)))
-            RetrievalService._shared_metadata_chunks = chunks
+                    offsets.append(pos)
+                    pos += len(line)
+            RetrievalService._shared_metadata_offsets = offsets
+            RetrievalService._shared_metadata_path = m_path
 
         # Warm up embedding model weights
         self.embedding_service._load_model()
@@ -312,11 +343,12 @@ class RetrievalService:
         distances, indices = self.vector_store.search(query_vec, top_k=fetch_k)
         t_faiss_ms = (time.perf_counter() - start_faiss) * 1000.0
 
-        # Step 3: Fast O(1) Metadata Lookup with Two-Stage Language Filtering
+        # Step 3: Fast O(1) Lazy Metadata Lookup with Two-Stage Language Filtering
         start_meta = time.perf_counter()
         results: List[RetrievalResult] = []
         low_confidence = False
-        meta_chunks = RetrievalService._shared_metadata_chunks or []
+        offsets = RetrievalService._shared_metadata_offsets or array.array('Q')
+        total_count = len(offsets)
 
         def _collect_results(filter_lang: Optional[str]) -> List[RetrievalResult]:
             collected: List[RetrievalResult] = []
@@ -327,9 +359,12 @@ class RetrievalService:
                 seen_query_ids = set()
 
                 for score, idx in zip(scores_row, indices_row):
-                    if idx < 0 or idx >= len(meta_chunks):
+                    if idx < 0 or idx >= total_count:
                         continue
-                    chunk_obj = meta_chunks[idx]
+
+                    chunk_obj = self.get_chunk_by_index(int(idx))
+                    if chunk_obj is None:
+                        continue
 
                     if filter_lang and not matches_language_filter(filter_lang, chunk_obj):
                         continue
