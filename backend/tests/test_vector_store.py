@@ -12,7 +12,7 @@ from app.rag.vector_store import FAISSVectorStore
 
 def test_faiss_vector_store_creation_and_add():
     """Verify FAISS IndexFlatIP initialization and vector addition."""
-    dim = 384
+    dim = 768
     store = FAISSVectorStore(dimension=dim)
     assert store.dimension == dim
     assert store.ntotal == 0
@@ -28,7 +28,7 @@ def test_faiss_vector_store_creation_and_add():
 
 def test_faiss_save_and_load(tmp_path):
     """Verify FAISS index can be saved to disk and reloaded successfully."""
-    dim = 384
+    dim = 768
     index_path = os.path.join(tmp_path, "test_index.faiss")
 
     store = FAISSVectorStore(dimension=dim)
@@ -52,7 +52,7 @@ def test_faiss_save_and_load(tmp_path):
 
 def test_faiss_search_functionality():
     """Verify vector inner product similarity search returns expected shape and distances."""
-    dim = 384
+    dim = 768
     store = FAISSVectorStore(dimension=dim)
     vectors = np.random.randn(20, dim).astype(np.float32)
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)

@@ -12,8 +12,9 @@ from app.core.config import get_settings
 
 
 _shared_model = None
+_shared_model_name = None
 _model_type = None  # 'fastembed' or 'sentence_transformers'
-DEFAULT_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2-quint8"
+DEFAULT_MODEL_NAME = "Xenova/distiluse-base-multilingual-cased-v2"
 
 
 class EmbeddingService:
@@ -29,33 +30,44 @@ class EmbeddingService:
         )
         self.dimension = int(
             getattr(settings, "embedding_dimension", None)
-            or os.getenv("EMBEDDING_DIMENSION", 384)
+            or os.getenv("EMBEDDING_DIMENSION", 768)
         )
         self._model = _shared_model
 
     def _load_model(self):
         """Pre-loads FastEmbed (ONNX) or SentenceTransformer model once into class-level singleton."""
-        global _shared_model, _model_type
-        if _shared_model is None:
+        global _shared_model, _shared_model_name, _model_type
+        if _shared_model is None or _shared_model_name != self.model_name:
+            _shared_model = None
+            _shared_model_name = self.model_name
             # Try lightweight FastEmbed ONNX Runtime first (no torch required, < 60MB RAM/disk)
             try:
                 from fastembed import TextEmbedding
                 from fastembed.common.model_description import PoolingType, ModelSource
 
-                # Register official INT8 AVX2 Quantized ONNX model from sentence-transformers repo
+                # Register Xenova INT8 Quantized DistilUSE ONNX model (768 dim, ~291 MB RAM)
                 try:
                     TextEmbedding.add_custom_model(
-                        model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2-quint8",
+                        model="Xenova/distiluse-base-multilingual-cased-v2",
                         pooling=PoolingType.MEAN,
                         normalization=True,
-                        sources=ModelSource(hf="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"),
-                        dim=384,
-                        model_file="onnx/model_quint8_avx2.onnx",
-                        description="Official INT8 AVX2 Quantized paraphrase-multilingual-MiniLM-L12-v2 ONNX model",
-                        size_in_gb=0.12
+                        sources=ModelSource(hf="Xenova/distiluse-base-multilingual-cased-v2"),
+                        dim=768,
+                        model_file="onnx/model_quantized.onnx",
+                        description="Xenova INT8 Quantized DistilUSE Multilingual ONNX model",
+                        size_in_gb=0.14
                     )
                 except ValueError:
                     pass  # Model already registered
+
+                # Targeted single-file pre-download to prevent HF snapshot_download overhead
+                try:
+                    from huggingface_hub import hf_hub_download
+                    _hf_repo = "Xenova/distiluse-base-multilingual-cased-v2"
+                    for _fn in ["onnx/model_quantized.onnx", "tokenizer.json", "config.json", "tokenizer_config.json", "special_tokens_map.json"]:
+                        hf_hub_download(repo_id=_hf_repo, filename=_fn)
+                except Exception as _dl_err:
+                    print(f"[EMBEDDINGS NOTE] Targeted pre-download notice: {_dl_err}")
 
                 _shared_model = TextEmbedding(
                     model_name=self.model_name,

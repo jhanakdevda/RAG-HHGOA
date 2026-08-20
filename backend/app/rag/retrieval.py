@@ -243,6 +243,12 @@ class RetrievalService:
         self.faiss_path = faiss_path
         self.metadata_path = metadata_path
         self.embedding_service = embedding_service or EmbeddingService()
+        if (
+            RetrievalService._shared_vector_store is not None
+            and hasattr(RetrievalService._shared_vector_store, "dimension")
+            and RetrievalService._shared_vector_store.dimension != self.embedding_service.dimension
+        ):
+            RetrievalService._shared_vector_store = None
         self.vector_store = vector_store or RetrievalService._shared_vector_store
 
     @property
@@ -277,7 +283,12 @@ class RetrievalService:
 
     def _ensure_loaded(self):
         """Pre-loads FAISS index and builds compact byte offset index for lazy metadata lookup."""
-        if self.vector_store is None or RetrievalService._shared_vector_store is None:
+        if (
+            self.vector_store is None
+            or RetrievalService._shared_vector_store is None
+            or (hasattr(RetrievalService._shared_vector_store, "dimension") and RetrievalService._shared_vector_store.dimension != self.embedding_service.dimension)
+        ):
+            RetrievalService._shared_vector_store = None
             f_path = self.faiss_path
             m_path = self.metadata_path
 

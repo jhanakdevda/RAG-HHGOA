@@ -92,7 +92,7 @@ def test_multilingual_embedding_generation():
     ]
 
     embeddings = service.encode_texts(multilingual_texts, normalize=True)
-    assert embeddings.shape == (7, 384)
+    assert embeddings.shape == (7, 768)
     assert embeddings.dtype == np.float32
 
     # Check unit norms
