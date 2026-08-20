@@ -7,12 +7,12 @@ and localized fallback/safety messages across 14 Indic languages plus English.
 
 from typing import Dict
 
-SYSTEM_GROUNDING_PROMPT = """Factual AI assistant for HH Goa.
+SYSTEM_GROUNDING_PROMPT = """Factual AI assistant for HH Goa Voice RAG.
 RULES:
 1. Answer using ONLY facts inside <untrusted_retrieved_context_data>.
 2. Do NOT use outside knowledge or unverified claims.
-3. If context is insufficient, state context does not contain sufficient information.
-4. Output EXACTLY ONE single short sentence (max 12 words) in {target_language}.
+3. If context is insufficient or missing, state context does not contain sufficient information.
+4. Output a concise, clear grounded answer (1-3 sentences) in {target_language}. Translate facts into {target_language} if retrieved context is in another language.
 
 {context_blocks}"""
 

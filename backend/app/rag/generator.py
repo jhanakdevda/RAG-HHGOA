@@ -17,7 +17,7 @@ from app.models.generation import (
     GroundingStatus
 )
 from app.models.retrieval import RetrievalRequest, RetrievalResponse
-from app.rag.retrieval import RetrievalService
+from app.rag.retrieval import RetrievalService, normalize_supported_language, detect_query_language
 from app.rag.prompts import SYSTEM_GROUNDING_PROMPT, get_insufficient_context_message, get_safety_rejection_message
 from app.rag.llm.base import BaseLLMProvider
 from app.rag.llm.factory import get_llm_provider
@@ -51,13 +51,29 @@ class GeneratorService:
         start_total = time.perf_counter()
         start_guard = time.perf_counter()
 
-        answer_lang = request.preferred_answer_language or "en"
-        print(f"[REQUEST {request_id}] Start /ask query='{request.query[:60]}' lang='{answer_lang}' top_k={request.top_k}")
+        detected_query_lang = detect_query_language(request.query)
+        pref_lang = request.preferred_answer_language
+        if not pref_lang or pref_lang.strip().lower() == "auto":
+            answer_lang = detected_query_lang
+        else:
+            answer_lang = normalize_supported_language(pref_lang, default=detected_query_lang)
+
+        lang_filter = request.language_filter or detected_query_lang
+
+        print(f"==================================================")
+        print(f"[RAG PIPELINE DEBUG {request_id}]")
+        print(f"QUERY: '{request.query}'")
+        print(f"DETECTED LANGUAGE: '{detected_query_lang}'")
+        print(f"REQUESTED ANSWER LANGUAGE: '{answer_lang}'")
+        print(f"RETRIEVAL FILTER: '{lang_filter}'")
 
         # Step 1: Safety Filter Screening
         safety_state, _ = SafetyFilter.evaluate_query(request.query)
         if safety_state == SafetyState.UNSAFE:
-            print(f"[REQUEST {request_id}] Safety Check: UNSAFE_QUERY")
+            print(f"SAFETY RESULT: UNSAFE_QUERY")
+            print(f"LLM CALLED: NO")
+            print(f"FINAL STATUS: UNSAFE_QUERY")
+            print(f"==================================================")
             safety_text = get_safety_rejection_message(answer_lang)
             guard_ms = (time.perf_counter() - start_guard) * 1000.0
             total_ms = (time.perf_counter() - start_total) * 1000.0
@@ -92,7 +108,7 @@ class GeneratorService:
             query=request.query,
             top_k=request.top_k,
             score_threshold=request.score_threshold,
-            language_filter=request.language_filter
+            language_filter=lang_filter
         )
 
         retrieval_resp = self.retrieval_service.retrieve(ret_req)
@@ -100,7 +116,10 @@ class GeneratorService:
 
         retrieved_chunks = [r.chunk for r in retrieval_resp.results]
         source_provenance = "local_rag"
-        print(f"[REQUEST {request_id}] Retrieval: {len(retrieved_chunks)} chunks in {retrieval_ms:.2f}ms")
+        scores_list = [r.score for r in retrieval_resp.results]
+
+        print(f"RETRIEVED RESULTS: {len(retrieved_chunks)} chunks in {retrieval_ms:.2f}ms")
+        print(f"TOP SCORES: {scores_list}")
 
         sources: List[SourceAttribution] = []
         for res in retrieval_resp.results:
@@ -113,7 +132,7 @@ class GeneratorService:
                 source_lang=c.source_lang or "",
                 target_lang=c.target_lang or "",
                 similarity_score=res.score,
-                text_snippet=c.text[:120] + "..." if len(c.text) > 120 else c.text,
+                text_snippet=c.text[:140] + "..." if len(c.text) > 140 else c.text,
                 title=getattr(c, "title", None),
                 url=getattr(c, "url", None),
                 domain=getattr(c, "domain", None)
@@ -130,19 +149,22 @@ class GeneratorService:
 
         insufficient_evidence = (
             not retrieved_chunks 
-            or retrieval_resp.low_confidence_warning 
-            or top_score < 0.55
+            or (retrieval_resp.low_confidence_warning and top_score < 0.45)
+            or top_score < 0.45
             or is_out_of_domain
         )
 
         if insufficient_evidence:
-            print(f"[REQUEST {request_id}] Evidence Quality Gate: NO_CONTEXT (top_score={top_score:.4f} < 0.55, out_of_domain={is_out_of_domain})")
+            print(f"EVIDENCE GATE: NO_CONTEXT (top_score={top_score:.4f}, out_of_domain={is_out_of_domain})")
+            print(f"LLM CALLED: NO")
+            print(f"FINAL STATUS: NO_CONTEXT")
+            print(f"==================================================")
             fallback_text = get_insufficient_context_message(answer_lang)
             guard_ms = (time.perf_counter() - start_guard) * 1000.0
             total_ms = (time.perf_counter() - start_total) * 1000.0
 
             return AskResponse(
-                query=request.query,  # Original query preserved exactly
+                query=request.query,
                 answer=fallback_text,
                 answer_language=answer_lang,
                 grounding_status=GroundingStatus.NO_CONTEXT,
@@ -171,8 +193,10 @@ class GeneratorService:
 
         # Step 4: Format System Prompt with Untrusted XML Boundary Tagging
         start_prompt = time.perf_counter()
-        context_blocks_str = InjectionDefense.format_untrusted_context(retrieved_chunks, max_snippet_len=100)
+        context_blocks_str = InjectionDefense.format_untrusted_context(retrieved_chunks, max_snippet_len=400)
         untrusted_query_str = InjectionDefense.format_untrusted_query(request.query)
+
+        print(f"CONTEXT LENGTH: {len(context_blocks_str)} chars")
 
         system_prompt = SYSTEM_GROUNDING_PROMPT.format(
             target_language=answer_lang,
@@ -181,14 +205,14 @@ class GeneratorService:
         prompt_str = untrusted_query_str
         prompt_ms = (time.perf_counter() - start_prompt) * 1000.0
 
-        # Step 5: Execute Groq Primary LLM Provider with Fail-Fast Cooldown (Exactly 1 Groq call)
+        # Step 5: Execute Primary LLM Provider with Automatic Fallback to Gemini
         primary_provider = self.llm_provider or get_llm_provider()
 
         gen_status = GroundingStatus.GROUNDED
         candidate_answer = ""
-        provider_used = "groq"
-        model_used = getattr(primary_provider, "model_name", "llama-3.1-8b-instant")
-        groq_ms = 0.0
+        provider_used = "none"
+        model_used = getattr(primary_provider, "model_name", "gemini-3.6-flash")
+        llm_ms = 0.0
 
         groq_attempted = False
         groq_success = False
@@ -197,80 +221,98 @@ class GeneratorService:
         in_tokens = 0
         out_tokens = 0
 
-        now_epoch = time.time()
-        # Circuit-breaker check: If Groq is in 30s cooldown, fail-fast immediately
-        if now_epoch < GeneratorService._groq_cooldown_until:
-            gen_status = GroundingStatus.PROVIDER_ERROR
-            provider_used = "none"
-            model_used = "none"
-            groq_attempted = False
-            groq_error_type = "COOLDOWN_ACTIVE"
-            should_try_groq = False
-            if GeneratorService._groq_cooldown_reason == "QUOTA_EXHAUSTED":
-                err_msg_text = "Groq usage limit reached. Please try again later."
-            else:
-                err_msg_text = "Groq is temporarily rate-limited. Please try again shortly."
-            candidate_answer = get_insufficient_context_message(answer_lang) + f" (Provider Error: {err_msg_text})"
-            print(f"[REQUEST {request_id}] Circuit Breaker: COOLDOWN ACTIVE ({GeneratorService._groq_cooldown_reason}) -> Fail-fast")
-        else:
-            should_try_groq = True
+        # Check if primary provider is Groq
+        prov_class = primary_provider.__class__.__name__.lower()
+        is_groq = "groq" in prov_class or "llama" in getattr(primary_provider, "model_name", "").lower()
 
-        if should_try_groq:
-            groq_attempted = True
-            groq_calls = 1
-            print(f"[REQUEST {request_id}] Groq execution start (1 Groq call for 1 user question)")
-            start_groq = time.perf_counter()
+        now_epoch = time.time()
+        should_try_groq = is_groq and (now_epoch >= GeneratorService._groq_cooldown_until)
+
+        if is_groq:
+            if now_epoch < GeneratorService._groq_cooldown_until:
+                groq_attempted = True
+                groq_error_type = "COOLDOWN_ACTIVE"
+                print("GROQ COOLDOWN ACTIVE — FAILING OVER TO GEMINI")
+
+            if should_try_groq:
+                groq_attempted = True
+                groq_calls = 1
+                print(f"LLM CALLED: YES (Groq {model_used})")
+                start_groq = time.perf_counter()
+                try:
+                    if hasattr(primary_provider, "generate_with_usage"):
+                        candidate_answer, in_tokens, out_tokens = primary_provider.generate_with_usage(
+                            prompt=prompt_str,
+                            system_instruction=system_prompt,
+                            max_tokens=150
+                        )
+                    else:
+                        candidate_answer = primary_provider.generate(
+                            prompt=prompt_str,
+                            system_instruction=system_prompt
+                        )
+                        in_tokens = int((len(system_prompt.split()) + len(prompt_str.split())) * 1.3)
+                        out_tokens = len(candidate_answer.split())
+
+                    llm_ms = (time.perf_counter() - start_groq) * 1000.0
+                    groq_success = True
+                    provider_used = "groq"
+                    model_used = getattr(primary_provider, "model_name", "llama-3.1-8b-instant")
+                    print(f"GROQ LATENCY: {llm_ms:.2f}ms | in_tok={in_tokens}, out_tok={out_tokens}")
+                except Exception as ge:
+                    llm_ms = (time.perf_counter() - start_groq) * 1000.0
+                    groq_success = False
+                    err_str = str(ge).lower()
+                    if "quota" in err_str or "exceeded" in err_str or "daily" in err_str or "tpd" in err_str or "rpd" in err_str:
+                        groq_error_type = "QUOTA_EXHAUSTED"
+                        GeneratorService._groq_cooldown_reason = "QUOTA_EXHAUSTED"
+                        GeneratorService._groq_cooldown_until = time.time() + GeneratorService.GROQ_COOLDOWN_SECONDS
+                    elif "rate" in err_str or "429" in err_str or "tpm" in err_str or "rpm" in err_str:
+                        groq_error_type = "RATE_LIMITED"
+                        GeneratorService._groq_cooldown_reason = "RATE_LIMITED"
+                        GeneratorService._groq_cooldown_until = time.time() + GeneratorService.GROQ_COOLDOWN_SECONDS
+                    elif "timeout" in err_str:
+                        groq_error_type = "TIMEOUT"
+                    else:
+                        groq_error_type = "PROVIDER_ERROR"
+                    print(f"GROQ EXCEPTION ({groq_error_type}) in {llm_ms:.2f}ms: {err_str[:100]} — FAILING OVER TO GEMINI")
+
+        # If Groq was not used or failed/cooldown, execute Gemini
+        if not groq_success:
             try:
-                if hasattr(primary_provider, "generate_with_usage"):
-                    candidate_answer, in_tokens, out_tokens = primary_provider.generate_with_usage(
+                gemini_provider = primary_provider if not is_groq else get_llm_provider("gemini")
+                print(f"LLM CALLED: YES (Gemini {getattr(gemini_provider, 'model_name', 'gemini-3.6-flash')})")
+                start_gemini = time.perf_counter()
+                if hasattr(gemini_provider, "generate_with_usage"):
+                    candidate_answer, in_tokens, out_tokens = gemini_provider.generate_with_usage(
                         prompt=prompt_str,
                         system_instruction=system_prompt,
-                        max_tokens=16
+                        max_tokens=150
                     )
                 else:
-                    candidate_answer = primary_provider.generate(
+                    candidate_answer = gemini_provider.generate(
                         prompt=prompt_str,
                         system_instruction=system_prompt
                     )
                     in_tokens = int((len(system_prompt.split()) + len(prompt_str.split())) * 1.3)
                     out_tokens = len(candidate_answer.split())
 
-                groq_ms = (time.perf_counter() - start_groq) * 1000.0
-                groq_success = True
-                provider_used = "groq"
-                model_used = getattr(primary_provider, "model_name", "llama-3.1-8b-instant")
-                print(f"[REQUEST {request_id}] Groq completed successfully in {groq_ms:.2f}ms | in_tok={in_tokens}, out_tok={out_tokens}")
-            except Exception as ge:
-                groq_ms = (time.perf_counter() - start_groq) * 1000.0
-                groq_success = False
-                err_str = str(ge).lower()
-                if "quota" in err_str or "exceeded" in err_str or "daily" in err_str or "tpd" in err_str or "rpd" in err_str:
-                    groq_error_type = "QUOTA_EXHAUSTED"
-                    GeneratorService._groq_cooldown_reason = "QUOTA_EXHAUSTED"
-                    GeneratorService._groq_cooldown_until = time.time() + GeneratorService.GROQ_COOLDOWN_SECONDS
-                    user_err = "Groq usage limit reached. Please try again later."
-                elif "rate" in err_str or "429" in err_str or "tpm" in err_str or "rpm" in err_str:
-                    groq_error_type = "RATE_LIMITED"
-                    GeneratorService._groq_cooldown_reason = "RATE_LIMITED"
-                    GeneratorService._groq_cooldown_until = time.time() + GeneratorService.GROQ_COOLDOWN_SECONDS
-                    user_err = "Groq is temporarily rate-limited. Please try again shortly."
-                elif "timeout" in err_str:
-                    groq_error_type = "TIMEOUT"
-                    user_err = "Groq request timed out. Please try again."
-                elif "auth" in err_str or "401" in err_str or "403" in err_str:
-                    groq_error_type = "AUTH_ERROR"
-                    user_err = "Groq authentication error."
-                else:
-                    groq_error_type = "PROVIDER_ERROR"
-                    user_err = f"Groq service error: {ge}"
-
+                gemini_ms = (time.perf_counter() - start_gemini) * 1000.0
+                llm_ms += gemini_ms
+                provider_used = "gemini"
+                model_used = getattr(gemini_provider, "model_name", "gemini-3.6-flash")
+                gen_status = GroundingStatus.GROUNDED
+                print(f"GEMINI LATENCY: {gemini_ms:.2f}ms | in_tok={in_tokens}, out_tok={out_tokens}")
+            except Exception as gme:
                 gen_status = GroundingStatus.PROVIDER_ERROR
                 provider_used = "none"
                 model_used = "none"
-                candidate_answer = get_insufficient_context_message(answer_lang) + f" (Provider Error: {user_err})"
-                print(f"[REQUEST {request_id}] Groq Exception ({groq_error_type}) in {groq_ms:.2f}ms: {err_str[:100]}")
+                err_msg_text = f"LLM Provider Error: {gme}"
+                candidate_answer = get_insufficient_context_message(answer_lang) + f" (Provider Error: {err_msg_text})"
+                print(f"GEMINI EXCEPTION: {gme}")
 
-        gen_ms = groq_ms
+        groq_ms = llm_ms if groq_success else 0.0
+        gen_ms = llm_ms
 
         # Step 6: Grounding Verification Engine Execution
         start_verify = time.perf_counter()

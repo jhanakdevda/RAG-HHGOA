@@ -13,17 +13,24 @@ class GeminiLLMProvider(BaseLLMProvider):
 
     def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None, timeout: float = 15.0):
         settings = get_settings()
-        self.api_key = api_key or settings.effective_llm_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("LLM_API_KEY")
+        self.api_key = (
+            api_key
+            or settings.gemini_api_key
+            or os.getenv("GEMINI_API_KEY")
+            or settings.effective_llm_api_key
+            or os.getenv("LLM_API_KEY")
+        )
 
         target_model = model_name or settings.llm_model
-        if not target_model or target_model in ("mock-v1", "gemini-1.5-flash"):
-            target_model = "gemini-flash-latest"
+        outdated_models = ("mock-v1", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-flash-latest", "llama-3.1-8b-instant")
+        if not target_model or target_model in outdated_models:
+            target_model = "gemini-3.6-flash"
 
         self.model_name = target_model
         self.timeout = timeout
 
         if not self.api_key:
-            raise ValueError("Gemini API key ('LLM_API_KEY' or 'GEMINI_API_KEY') is required for 'gemini' provider.")
+            raise ValueError("Gemini API key ('GEMINI_API_KEY' or 'LLM_API_KEY') is required for 'gemini' provider.")
 
     def generate(self, prompt: str, system_instruction: Optional[str] = None) -> str:
         """Invokes Google Gemini API via google.genai SDK or legacy fallback."""
@@ -60,3 +67,18 @@ class GeminiLLMProvider(BaseLLMProvider):
             return response.text.strip()
         except Exception as e:
             raise RuntimeError(f"Gemini API call failed: {e}") from e
+
+    def generate_with_usage(
+        self,
+        prompt: str,
+        system_instruction: Optional[str] = None,
+        max_tokens: int = 150,
+        temperature: float = 0.1,
+        stop: Optional[list[str]] = None
+    ) -> tuple[str, int, int]:
+        """Invokes Gemini API and returns tuple of (answer_text, prompt_tokens, completion_tokens)."""
+        text = self.generate(prompt=prompt, system_instruction=system_instruction)
+        prompt_tokens = int(len((system_instruction or "").split() + prompt.split()) * 1.3)
+        completion_tokens = len(text.split())
+        return text, prompt_tokens, completion_tokens
+

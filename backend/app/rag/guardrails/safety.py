@@ -23,6 +23,8 @@ MALICIOUS_PATTERNS = [
     "format c:",
     "how to build a bomb",
     "how to make explosives",
+    "ignore previous instructions",
+    "ignore all previous instructions",
 ]
 
 

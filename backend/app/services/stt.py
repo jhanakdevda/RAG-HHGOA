@@ -12,18 +12,21 @@ import httpx
 
 from app.core.config import get_settings
 from app.models.stt import TranscribeResponse
+from app.rag.retrieval import normalize_supported_language
 
 SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
 
-# Language code mapping to Sarvam BCP-47 identifiers
+OFFICIALLY_SUPPORTED_LANGUAGES = {"en", "hi", "mr", "gu"}
+
+# Language code mapping to Sarvam BCP-47 identifiers (Officially supported: en, hi, mr, gu)
 SARVAM_LANG_MAP = {
     "en": "en-IN",
     "hi": "hi-IN",
     "mr": "mr-IN",
+    "gu": "gu-IN",
     "bn": "bn-IN",
     "ta": "ta-IN",
     "te": "te-IN",
-    "gu": "gu-IN",
     "kn": "kn-IN",
     "ml": "ml-IN",
     "pa": "pa-IN",
@@ -60,16 +63,18 @@ class SpeechToTextService:
         """
         start_time = time.perf_counter()
 
+        norm_code = normalize_supported_language(language_code, default="en")
+
         if not audio_bytes or len(audio_bytes) < 100:
             return TranscribeResponse(
                 transcript="",
-                language_code=language_code or "en",
+                language_code=norm_code,
                 stt_latency_ms=round((time.perf_counter() - start_time) * 1000.0, 2),
                 success=False,
                 error_message="Audio recording is empty or too short."
             )
 
-        sarvam_lang = SARVAM_LANG_MAP.get((language_code or "en").strip().lower(), "hi-IN")
+        sarvam_lang = SARVAM_LANG_MAP.get(norm_code, "en-IN")
 
         if not self.api_key:
             latency_ms = (time.perf_counter() - start_time) * 1000.0

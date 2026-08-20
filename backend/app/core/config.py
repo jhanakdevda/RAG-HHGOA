@@ -39,11 +39,11 @@ class Settings(BaseSettings):
     cerebras_api_key: Optional[str] = None
 
     # LLM Provider Configuration
-    llm_provider: str = "mock"  # Options: "mock", "gemini", "openai", "groq", "ollama", "cerebras"
-    llm_model: str = "mock-v1"   # Provider model identifier
+    llm_provider: str = "gemini"  # Options: "mock", "gemini", "openai", "groq", "ollama", "cerebras"
+    llm_model: str = "gemini-3.6-flash"   # Provider model identifier
     llm_api_key: Optional[str] = None
     llm_base_url: Optional[str] = None
-    llm_timeout: float = 3.0
+    llm_timeout: float = 15.0
     llm_temperature: float = 0.1
 
     # Phase 8 Grounding Verification Configurable Heuristic Thresholds

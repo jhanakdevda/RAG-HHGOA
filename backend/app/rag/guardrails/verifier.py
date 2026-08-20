@@ -107,12 +107,27 @@ class GroundingVerifier:
                 unmatched_sentences.append(s)
                 unmatched_indices.append((idx, overlap_score))
 
-        # Fast return for cross-lingual unmatched sentences to avoid 40ms PyTorch re-encoding overhead
+        # Semantic fallback using EmbeddingService for cross-lingual / low-lexical unmatched sentences
         if unmatched_sentences:
-            self.last_fast_path_used = True
-            for orig_idx, lexical_score in unmatched_indices:
-                score_val = 0.60 if lexical_score >= 0.15 else 0.0
-                sentence_scores.append((orig_idx, score_val))
+            try:
+                ans_vecs = self.embedding_service.encode_texts(unmatched_sentences, normalize=True)
+                ctx_vecs = self.embedding_service.encode_texts([c.text for c in context_chunks], normalize=True)
+
+                sim_matrix = np.dot(ans_vecs, ctx_vecs.T)
+                max_sims = np.max(sim_matrix, axis=1)
+
+                for (orig_idx, lexical_score), sem_sim in zip(unmatched_indices, max_sims):
+                    score_val = max(float(sem_sim), lexical_score)
+                    if score_val >= 0.45:
+                        sentence_scores.append((orig_idx, max(0.65, round(score_val, 4))))
+                    else:
+                        sentence_scores.append((orig_idx, round(score_val, 4)))
+                self.last_fast_path_used = False
+            except Exception:
+                self.last_fast_path_used = True
+                for orig_idx, lexical_score in unmatched_indices:
+                    score_val = 0.60 if lexical_score >= 0.15 else 0.0
+                    sentence_scores.append((orig_idx, score_val))
 
         sentence_scores.sort(key=lambda x: x[0])
         final_scores = [s[1] for s in sentence_scores]

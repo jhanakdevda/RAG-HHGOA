@@ -28,9 +28,10 @@ def get_llm_provider(
     global _cached_provider, _cached_key_tuple
     settings = get_settings()
 
-    provider = (provider_name or settings.llm_provider or "groq").strip().lower()
-    model = model_name or settings.llm_model or "llama-3.1-8b-instant"
-    key = api_key or settings.groq_api_key or settings.effective_llm_api_key
+    provider = (provider_name or settings.llm_provider or "gemini").strip().lower()
+    default_model = "gemini-3.6-flash" if provider == "gemini" else "llama-3.1-8b-instant"
+    model = model_name or settings.llm_model or default_model
+    key = api_key or (settings.gemini_api_key if provider == "gemini" else settings.groq_api_key) or settings.effective_llm_api_key
     url = base_url or settings.llm_base_url or "https://api.groq.com/openai/v1"
     t_out = timeout if timeout is not None else settings.llm_timeout
 
@@ -41,11 +42,8 @@ def get_llm_provider(
     if provider == "mock":
         inst = MockLLMProvider(model_name=model)
     elif provider == "gemini":
-        try:
-            from app.rag.llm.gemini import GeminiLLMProvider
-            inst = GeminiLLMProvider(api_key=key, model_name=model, timeout=t_out)
-        except Exception:
-            inst = GroqLLMProvider(api_key=key, model_name=model, base_url=url, timeout=t_out)
+        from app.rag.llm.gemini import GeminiLLMProvider
+        inst = GeminiLLMProvider(api_key=key, model_name=model, timeout=t_out)
     elif provider == "openai":
         from app.rag.llm.openai_adapter import OpenAILLMProvider
         inst = OpenAILLMProvider(api_key=key, model_name=model, base_url=url, timeout=t_out)
@@ -55,7 +53,8 @@ def get_llm_provider(
     elif provider == "groq":
         inst = GroqLLMProvider(api_key=key, model_name=model, base_url=url, timeout=t_out)
     else:
-        inst = GroqLLMProvider(api_key=key, model_name=model, base_url=url, timeout=t_out)
+        from app.rag.llm.gemini import GeminiLLMProvider
+        inst = GeminiLLMProvider(api_key=key, model_name=model, timeout=t_out)
 
     _cached_provider = inst
     _cached_key_tuple = key_tuple

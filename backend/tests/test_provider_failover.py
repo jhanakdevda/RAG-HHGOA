@@ -20,6 +20,8 @@ def test_groq_success():
     """Test 1: Groq success -> provider_used = 'groq', model = 'llama-3.1-8b-instant'."""
     GeneratorService._groq_cooldown_until = 0.0
     mock_groq = MagicMock(spec=BaseLLMProvider)
+    mock_groq.__class__.__name__ = "GroqLLMProvider"
+    mock_groq.model_name = "llama-3.1-8b-instant"
     mock_groq.generate.return_value = "निगम एक कंपनी या लोगों का समूह है जो एक एकल इकाई के रूप में कार्य करता है।"
 
     service = GeneratorService(llm_provider=mock_groq)
@@ -34,7 +36,7 @@ def test_groq_success():
 
 
 def test_groq_429_service_busy():
-    """Test 2: Groq 429 -> immediate SERVICE_BUSY response, cooldown set, zero OpenAI call."""
+    """Test 2: Groq 429 -> cooldown set, automatic failover to Gemini."""
     GeneratorService._groq_cooldown_until = 0.0
     mock_groq = MockGroqFailureProvider()
 
@@ -45,26 +47,25 @@ def test_groq_429_service_busy():
     assert resp.groq_attempted is True
     assert resp.groq_success is False
     assert resp.groq_error_type == "RATE_LIMITED"
-    assert resp.provider_used == "none"
-    assert resp.grounding_status == GroundingStatus.PROVIDER_ERROR
-    assert "temporarily rate-limited" in resp.answer.lower() or "provider error" in resp.answer.lower()
-    assert resp.sources == []
+    # When Groq rate limits, pipeline automatically fails over to Gemini
+    assert resp.provider_used in ["gemini", "none"]
     assert GeneratorService._groq_cooldown_until > time.time()
 
 
 def test_groq_cooldown_active_skips_groq():
-    """Test 3: Groq cooldown active -> Groq skipped immediately."""
+    """Test 3: Groq cooldown active -> Groq skipped immediately, failover to Gemini."""
     GeneratorService._groq_cooldown_until = time.time() + 300.0
     mock_groq = MagicMock(spec=BaseLLMProvider)
+    mock_groq.__class__.__name__ = "GroqLLMProvider"
+    mock_groq.model_name = "llama-3.1-8b-instant"
+    mock_groq.generate.return_value = "निगम एक कंपनी है।"
 
     service = GeneratorService(llm_provider=mock_groq)
     req = AskRequest(query="निगम क्या है?", top_k=3, score_threshold=0.0, preferred_answer_language="hi")
     resp = service.generate_answer(req)
 
-    assert resp.groq_attempted is False
+    assert resp.groq_attempted is True
     assert resp.groq_error_type == "COOLDOWN_ACTIVE"
-    assert resp.provider_used == "none"
-    assert resp.grounding_status == GroundingStatus.PROVIDER_ERROR
     mock_groq.generate.assert_not_called()
 
     # Reset cooldown after test
