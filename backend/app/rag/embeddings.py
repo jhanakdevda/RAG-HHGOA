@@ -40,7 +40,7 @@ class EmbeddingService:
             # Try lightweight FastEmbed ONNX Runtime first (no torch required, < 60MB RAM/disk)
             try:
                 from fastembed import TextEmbedding
-                _shared_model = TextEmbedding(model_name=self.model_name)
+                _shared_model = TextEmbedding(model_name=self.model_name, threads=1)
                 _model_type = "fastembed"
                 list(_shared_model.embed(["warmup"]))
                 print(f"[EMBEDDINGS] Loaded lightweight FastEmbed ONNX model: {self.model_name}")

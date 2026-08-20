@@ -16,6 +16,14 @@ services:
         value: gemini
       - key: LLM_MODEL
         value: gemini-3.6-flash
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: HF_HUB_DISABLE_SYMLINKS_WARNING
+        value: "1"
       - key: GEMINI_API_KEY
         sync: false
       - key: GROQ_API_KEY
