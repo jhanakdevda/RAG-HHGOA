@@ -81,6 +81,14 @@ export async function sendAskQuestion({ query, top_k = 3, language_filter = null
   }
 }
 
+export async function submitQuestion({ query, preferred_answer_language = null }) {
+  const result = await sendAskQuestion({ query, preferred_answer_language });
+  if (result && result.errorType) {
+    return { success: false, error_message: result.message };
+  }
+  return { success: true, data: result };
+}
+
 export async function transcribeAudio({ audioBlob, language = 'en' }) {
   const formData = new FormData();
   formData.append('file', audioBlob, 'recording.webm');

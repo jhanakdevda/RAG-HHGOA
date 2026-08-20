@@ -1,47 +1,79 @@
 import React from 'react';
-import { Cpu, ShieldCheck, Zap, Globe, Database } from 'lucide-react';
+import { Mic, Database, BookOpen, Cpu, ShieldCheck } from 'lucide-react';
 
 export default function AboutSection() {
-  const techStack = [
-    { name: 'Sarvam STT', desc: 'Speech Recognition for 10+ Indian Languages', icon: Globe },
-    { name: 'FAISS Vector Search', desc: 'Ultra-Fast 21.5k Chunk Dense Retrieval', icon: Database },
-    { name: 'MS MARCO-XI', desc: 'Multilingual Evidence Corpus', icon: Database },
-    { name: 'Groq Llama 3.1 8B', desc: 'Sub-Second LLM Generation', icon: Zap },
-    { name: 'Grounding Verification', desc: 'Hallucination Screening & Attribution', icon: ShieldCheck },
+  const techCards = [
+    {
+      name: 'Sarvam STT',
+      role: 'Speech Recognition',
+      desc: 'High-accuracy Indic speech transcription for English, Hindi, Marathi, and Gujarati.',
+      icon: Mic,
+      color: 'text-cyan-400'
+    },
+    {
+      name: 'FAISS',
+      role: 'Vector Retrieval',
+      desc: 'Sub-25ms L2 normalized dense vector search across 21,573 passage embeddings.',
+      icon: Database,
+      color: 'text-purple-400'
+    },
+    {
+      name: 'MS MARCO-XI',
+      role: 'Knowledge Retrieval',
+      desc: 'Authentic multilingual evidence corpus with rich metadata provenance.',
+      icon: BookOpen,
+      color: 'text-blue-400'
+    },
+    {
+      name: 'Llama / Groq',
+      role: 'Answer Generation',
+      desc: 'Sub-second LLM answer synthesis with context-bounded prompt templates.',
+      icon: Cpu,
+      color: 'text-emerald-400'
+    },
+    {
+      name: 'Grounding Verification',
+      role: 'Hallucination Screening',
+      desc: 'Automated claim verification engine preventing unverified AI responses.',
+      icon: ShieldCheck,
+      color: 'text-amber-400'
+    }
   ];
 
   return (
-    <section className="w-full mt-12 mb-8 pt-8 pb-6 border-t border-white/10 font-sans">
+    <section className="w-full mt-10 mb-8 pt-8 border-t border-white/10 font-sans">
+      
+      {/* Header */}
       <div className="text-center max-w-xl mx-auto mb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono mb-3">
-          <Cpu className="w-3.5 h-3.5" />
-          <span>HACKER HOUSE GOA 2026</span>
-        </div>
-
-        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mb-2 font-mono uppercase">
-          About RAGE
+        <h2 className="text-sm font-bold text-cyan-400 font-mono tracking-widest uppercase mb-2">
+          ABOUT RAG
         </h2>
-        <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-          RAGE is a Voice-Enabled Multilingual Retrieval-Augmented Generation system engineered for ultra-fast, grounded query answering across Indic scripts and English.
+        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
+          RAG is a voice-enabled multilingual Retrieval-Augmented Generation system designed to provide fast, grounded answers across English and Indian languages.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
-        {techStack.map((tech, idx) => {
+      {/* Technology Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {techCards.map((tech, idx) => {
           const Icon = tech.icon;
           return (
-            <div key={idx} className="clean-card p-3.5 flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-white/5 border border-white/10 text-cyan-400 shrink-0">
+            <div key={idx} className="tech-panel p-4 flex items-start gap-3.5 hover:border-white/20 transition-all">
+              <div className={`p-2.5 rounded-lg bg-white/5 border border-white/10 ${tech.color} shrink-0`}>
                 <Icon className="w-4 h-4" />
               </div>
-              <div>
-                <h3 className="text-xs font-bold text-slate-200 font-mono">{tech.name}</h3>
-                <p className="text-[11px] text-slate-400 leading-tight mt-0.5">{tech.desc}</p>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-white font-mono">{tech.name}</h3>
+                </div>
+                <div className="text-[11px] font-mono text-cyan-400 font-medium">{tech.role}</div>
+                <p className="text-[11px] text-slate-400 leading-relaxed font-sans">{tech.desc}</p>
               </div>
             </div>
           );
         })}
       </div>
+
     </section>
   );
 }

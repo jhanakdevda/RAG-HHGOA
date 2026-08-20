@@ -1,114 +1,51 @@
-import React, { useState } from 'react';
-import { Cpu, Info, HelpCircle, Menu, X, ChevronDown, ChevronUp } from 'lucide-react';
+import React from 'react';
+import { Mic, Settings } from 'lucide-react';
 
-export default function Header({ isOnline, onOpenAbout, isHowItWorksOpen, onToggleHowItWorks }) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const handleHowItWorksClick = (e) => {
-    e.preventDefault();
-    setMobileMenuOpen(false);
-    onToggleHowItWorks();
-  };
-
+export default function Header({
+  isOnline,
+  onToggleHowItWorks
+}) {
   return (
-    <header className="sticky top-0 z-40 w-full h-16 bg-[#070a14]/90 backdrop-blur-md border-b border-white/5 transition-all">
-      <div className="main-container flex items-center justify-between h-full">
+    <header className="sticky top-0 z-40 w-full h-16 bg-[#060314]/90 backdrop-blur-2xl border-b border-purple-500/20 font-sans shadow-xl">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
         
-        {/* Left Branding */}
+        {/* Left: Purple Mic Logo + Title & Subtitle */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 flex items-center justify-center">
-            <Cpu className="w-4 h-4 text-cyan-400" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-700 via-indigo-600 to-pink-600 border border-purple-300/40 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.5)]">
+            <Mic className="w-4 h-4 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]" />
           </div>
           
-          <div className="flex items-center gap-2 font-sans">
-            <span className="font-bold text-base tracking-tight text-white font-mono">
-              RAGE
+          <div className="flex flex-col font-sans">
+            <span className="font-extrabold text-base tracking-tight text-white flex items-center gap-1.5">
+              Voice RAG
             </span>
-            <span className="text-white/20 hidden sm:inline">|</span>
-            <span className="text-xs font-medium text-slate-300 hidden sm:inline">
-              Voice-Enabled Multilingual RAG
+            <span className="text-[10px] font-mono tracking-wider text-purple-400 uppercase font-semibold">
+              MULTILINGUAL NEURAL INTELLIGENCE
             </span>
           </div>
         </div>
 
-        {/* Center / Right Controls (Desktop) */}
-        <div className="hidden md:flex items-center gap-6">
-          {/* Online/Offline indicator */}
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.03] border border-white/5 text-xs font-mono">
-            <span className={isOnline ? "dot-online" : "dot-offline"} />
-            <span className={isOnline ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold"}>
-              {isOnline ? "SYSTEM ONLINE" : "SYSTEM OFFLINE"}
-            </span>
+        {/* Right: Online Pill + Architecture Settings Button matching image */}
+        <div className="flex items-center gap-3 font-mono text-xs">
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-bold transition-all ${
+            isOnline
+              ? "bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+              : "bg-rose-950/60 border border-rose-500/40 text-rose-400"
+          }`}>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>{isOnline ? "Online" : "Offline"}</span>
           </div>
 
           <button
-            onClick={onOpenAbout}
-            className="text-xs text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-white/5"
+            onClick={onToggleHowItWorks}
+            className="px-4 py-1.5 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/40 text-white font-sans text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
           >
-            <Info className="w-3.5 h-3.5 text-slate-400" />
-            <span>About</span>
-          </button>
-
-          <button
-            onClick={handleHowItWorksClick}
-            className="text-xs text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-white/5"
-          >
-            <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-            <span>How It Works</span>
-            {isHowItWorksOpen ? (
-              <ChevronUp className="w-3.5 h-3.5 text-cyan-400" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5 text-cyan-400" />
-            )}
-          </button>
-        </div>
-
-        {/* Mobile Toggle */}
-        <div className="flex items-center gap-3 md:hidden">
-          <div className="flex items-center gap-1.5 text-xs font-mono">
-            <span className={isOnline ? "dot-online" : "dot-offline"} />
-            <span className={isOnline ? "text-emerald-400" : "text-rose-400"}>
-              {isOnline ? "ONLINE" : "OFFLINE"}
-            </span>
-          </div>
-
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-1.5 text-slate-300 hover:text-white rounded-md bg-white/5 border border-white/5"
-            aria-label="Toggle navigation menu"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            <Settings className="w-3.5 h-3.5 text-purple-300" />
+            <span>Architecture</span>
           </button>
         </div>
 
       </div>
-
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-b border-white/10 bg-[#070a14]/95 backdrop-blur-xl px-4 py-3 flex flex-col gap-2 font-mono text-xs">
-          <button
-            onClick={() => {
-              setMobileMenuOpen(false);
-              onOpenAbout();
-            }}
-            className="flex items-center gap-2 p-2 rounded-md text-slate-200 hover:bg-white/5 text-left"
-          >
-            <Info className="w-4 h-4 text-cyan-400" />
-            <span>About RAGE</span>
-          </button>
-
-          <button
-            onClick={handleHowItWorksClick}
-            className="flex items-center justify-between p-2 rounded-md text-slate-200 hover:bg-white/5"
-          >
-            <div className="flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 text-purple-400" />
-              <span>How It Works</span>
-            </div>
-            {isHowItWorksOpen ? <ChevronUp className="w-4 h-4 text-cyan-400" /> : <ChevronDown className="w-4 h-4 text-cyan-400" />}
-          </button>
-        </div>
-      )}
     </header>
   );
 }

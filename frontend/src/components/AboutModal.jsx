@@ -24,7 +24,7 @@ export default function AboutModal({ isOpen, onClose }) {
           </div>
           <div>
             <h2 className="text-lg font-bold text-white tracking-wide">
-              RAGE — Voice-Enabled Multilingual RAG
+              RAG — Voice-Enabled Multilingual Intelligence
             </h2>
             <p className="text-xs text-cyan-400 font-semibold">
               Hacker House Goa 2026 &bull; Task 2
@@ -35,7 +35,7 @@ export default function AboutModal({ isOpen, onClose }) {
         {/* Modal Description */}
         <div className="space-y-4 text-xs text-slate-300 leading-relaxed font-sans mb-6">
           <p>
-            RAGE is an ultra-low latency, voice-enabled Retrieval-Augmented Generation (RAG) system built for accurate multilingual knowledge discovery across English and 15 Indic languages.
+            RAG is an ultra-low latency, voice-enabled Retrieval-Augmented Generation system built for accurate multilingual knowledge discovery across English, Hindi, Marathi, and Gujarati.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 font-mono text-[11px]">
@@ -44,7 +44,7 @@ export default function AboutModal({ isOpen, onClose }) {
                 <Mic className="w-3.5 h-3.5" /> Sarvam Speech-to-Text
               </div>
               <p className="text-slate-400 font-sans text-[11px]">
-                High-accuracy Indic speech transcription with automatic dialect and script recognition.
+                High-accuracy Indic speech transcription for English, Hindi, Marathi, and Gujarati.
               </p>
             </div>
 

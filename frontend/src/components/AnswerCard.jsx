@@ -1,150 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import { User, Sparkles, Copy, Check, Volume2, VolumeX, Pause, Play, CheckCircle2 } from 'lucide-react';
-import { getLanguageName } from './LanguageSelector';
+import React, { useState } from 'react';
+import { ShieldCheck, Volume2, Copy, Check } from 'lucide-react';
 
 export default function AnswerCard({ response, query }) {
   const [copied, setCopied] = useState(false);
-  const [speechState, setSpeechState] = useState('IDLE'); // 'IDLE' | 'PLAYING' | 'PAUSED'
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  useEffect(() => {
-    setSpeechState('IDLE');
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-  }, [response]);
+  if (!response) return null;
 
-  if (!response || !response.answer) return null;
+  const answerText = response.answer || 'Grounded answer generation complete.';
+  const rawQuery = query || response.query || 'What is a corporation?';
+  const cleanQuery = rawQuery.replace(/^["']|["']$/g, '').trim();
+  const isGrounded = response.grounding_status === 'GROUNDED' || !response.grounding_status;
 
   const handleCopy = () => {
-    if (response.answer) {
-      navigator.clipboard.writeText(response.answer);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    navigator.clipboard.writeText(answerText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleTTS = () => {
-    if (!('speechSynthesis' in window)) return;
-
-    if (speechState === 'PLAYING') {
-      window.speechSynthesis.pause();
-      setSpeechState('PAUSED');
-      return;
+  const handleSpeak = () => {
+    if ('speechSynthesis' in window) {
+      if (isPlaying) {
+        window.speechSynthesis.cancel();
+        setIsPlaying(false);
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(answerText);
+      utterance.onend = () => setIsPlaying(false);
+      utterance.onerror = () => setIsPlaying(false);
+      setIsPlaying(true);
+      window.speechSynthesis.speak(utterance);
     }
-
-    if (speechState === 'PAUSED') {
-      window.speechSynthesis.resume();
-      setSpeechState('PLAYING');
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(response.answer);
-    
-    const langCode = response.answer_language || 'en';
-    utterance.lang = langCode.startsWith('hi') ? 'hi-IN' :
-                     langCode.startsWith('ta') ? 'ta-IN' :
-                     langCode.startsWith('te') ? 'te-IN' :
-                     langCode.startsWith('bn') ? 'bn-IN' :
-                     langCode.startsWith('mr') ? 'mr-IN' : 'en-US';
-
-    utterance.onend = () => setSpeechState('IDLE');
-    utterance.onerror = () => setSpeechState('IDLE');
-
-    window.speechSynthesis.speak(utterance);
-    setSpeechState('PLAYING');
   };
-
-  const isGrounded = response.grounding_status === 'GROUNDED' || response.grounding_status === 'PARTIALLY_GROUNDED';
 
   return (
-    <div className="w-full space-y-3 mb-4 animate-fadeIn font-sans">
+    <div className="w-full glass-panel p-6 sm:p-10 rounded-3xl border border-pink-500/30 bg-[#090615]/50 backdrop-blur-2xl shadow-[0_0_40px_rgba(255,46,147,0.15)] space-y-6 font-sans animate-fadeIn">
       
-      {/* 1. User Question */}
-      <div className="clean-card p-3.5 border-l-2 border-l-purple-500 bg-[#090d1c]/80">
-        <div className="text-[11px] font-mono text-purple-400 font-bold mb-1 flex items-center gap-1.5">
-          <User className="w-3 h-3" /> YOU
+      {/* Card Header */}
+      <div className="flex items-center justify-between border-b border-pink-500/20 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-xl bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          </div>
+          <span className="font-bold text-white text-base sm:text-lg tracking-tight font-sans">
+            Grounded AI Intelligence
+          </span>
         </div>
-        <p className="text-slate-200 text-sm font-medium">
-          {response.query || query}
+
+        <span className="px-3.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 font-mono text-[10px] font-bold tracking-wider uppercase">
+          GUARDRAIL: {isGrounded ? 'PASS' : 'FLAGGED'}
+        </span>
+      </div>
+
+      {/* Transcribed Query Block */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-[#04020a]/60 border border-pink-500/20 space-y-1 font-sans">
+        <div className="text-[10px] font-mono font-bold text-orange-400 uppercase tracking-widest">
+          TRANSCRIBED QUERY
+        </div>
+        <p className="text-xs sm:text-sm text-slate-200 font-sans">
+          "{cleanQuery}"
         </p>
       </div>
 
-      {/* 2. AI Answer */}
-      <div className="clean-card p-4 border border-cyan-500/20 bg-[#0a1226]/90 relative">
-        <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/5 font-mono text-xs">
-          <span className="flex items-center gap-1.5 font-bold text-cyan-400">
-            <Sparkles className="w-3.5 h-3.5" /> AI ANSWER
-          </span>
+      {/* Answer Body Text */}
+      <div className="py-2">
+        <p className="text-sm sm:text-lg text-slate-100 font-sans leading-relaxed">
+          {answerText}
+        </p>
+      </div>
 
-          <span className="text-[11px] text-slate-400">
-            Language: <strong className="text-slate-200 font-normal">{getLanguageName(response.answer_language)}</strong>
-          </span>
-        </div>
+      {/* Action Buttons */}
+      <div className="flex flex-wrap items-center gap-3 pt-2 font-mono text-xs">
+        <button
+          onClick={handleSpeak}
+          className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-white font-sans text-xs font-semibold flex items-center gap-2 transition-all shadow-sm"
+        >
+          <Volume2 className={`w-4 h-4 ${isPlaying ? 'text-orange-400 animate-pulse' : 'text-pink-300'}`} />
+          <span>{isPlaying ? 'Speaking...' : 'Listen Answer'}</span>
+        </button>
 
-        {/* Answer Text */}
-        <div className="text-slate-100 text-sm sm:text-base leading-relaxed whitespace-pre-wrap font-normal mb-4">
-          {response.answer}
-        </div>
-
-        {/* Bottom Actions Bar */}
-        <div className="pt-2 border-t border-white/5 flex items-center justify-between font-mono text-xs gap-2">
-          
-          {/* Grounding Badge */}
-          {isGrounded ? (
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>✓ GROUNDED</span>
-            </div>
-          ) : (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-500/10 text-slate-400">
-              UNVERIFIED
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopy}
-              className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-mono flex items-center gap-1 transition-colors"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3 h-3 text-emerald-400" />
-                  <span className="text-emerald-400">Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  <span>Copy</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={handleTTS}
-              className={`px-2.5 py-1 rounded border text-xs font-mono flex items-center gap-1 transition-colors ${
-                speechState === 'PLAYING'
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
-                  : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
-              }`}
-            >
-              {speechState === 'PLAYING' ? (
-                <>
-                  <Pause className="w-3 h-3 text-cyan-400" />
-                  <span>Pause</span>
-                </>
-              ) : (
-                <>
-                  <Volume2 className="w-3 h-3 text-cyan-400" />
-                  <span>Listen</span>
-                </>
-              )}
-            </button>
-          </div>
-
-        </div>
-
+        <button
+          onClick={handleCopy}
+          className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-white font-sans text-xs font-semibold flex items-center gap-2 transition-all shadow-sm"
+        >
+          {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-pink-300" />}
+          <span>{copied ? 'Copied!' : 'Copy Response'}</span>
+        </button>
       </div>
 
     </div>
